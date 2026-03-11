@@ -61,15 +61,21 @@ exports.getPublicFields = async (req, res) => {
     try {
         const { campCode } = req.params;
 
-        // Lookup camp by code (or ID)
+        // Lookup camp by code (encoded CampId)
         let camp;
-        if (isNaN(campCode)) {
-            // Search by camp name or some code — for now look up by campId in query
+        let decodedCampId;
+        try {
+            decodedCampId = parseInt(Buffer.from(campCode, 'base64').toString('utf-8').replace('camp-', ''), 10);
+        } catch (e) {
+            return res.status(400).json({ success: false, message: 'Invalid camp code format' });
+        }
+
+        if (isNaN(decodedCampId)) {
             return res.status(400).json({ success: false, message: 'Invalid camp code' });
         } else {
             const [rows] = await db.execute(
                 `SELECT CampId, CampName, CampDescription FROM camps WHERE CampId = ? AND IsDeleted = FALSE`,
-                [campCode]
+                [decodedCampId]
             );
             camp = rows[0];
         }
@@ -168,7 +174,12 @@ exports.updateRegistration = async (req, res) => {
 // Delete (soft) registration
 exports.deleteRegistration = async (req, res) => {
     try {
-        await CampRegistration.delete(req.params.registrationId, req.user.userId);
+        const roleCode = (req.user?.RoleCode || '').toUpperCase();
+        if (roleCode !== 'SUPER_ADMIN' && roleCode !== 'SUPERADMIN') {
+            return res.status(403).json({ success: false, message: 'Only Super Admin can delete.' });
+        }
+
+        await CampRegistration.delete(req.params.registrationId, req.user.UserId);
         res.json({ success: true, message: 'Registration deleted' });
     } catch (error) {
         console.error('Delete registration error:', error);
@@ -190,7 +201,6 @@ exports.exportExcel = async (req, res) => {
         // Header row
         const columns = [
             { header: 'Registration #', key: 'id', width: 15 },
-            { header: 'Status', key: 'status', width: 12 },
             { header: 'Registered Date', key: 'date', width: 20 },
         ];
         fields.forEach(f => {
@@ -202,8 +212,7 @@ exports.exportExcel = async (req, res) => {
         registrations.forEach(reg => {
             const row = {
                 id: reg.RegistrationId,
-                status: reg.Status,
-                date: new Date(reg.CreatedDate).toLocaleString('en-IN'),
+                date: new Date(reg.CreatedDate).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
             };
             (reg.responses || []).forEach(r => {
                 row[`field_${r.FieldId}`] = r.ResponseValue;

@@ -180,6 +180,11 @@ exports.updateAttendance = async (req, res) => {
 // Delete camp
 exports.deleteCamp = async (req, res) => {
     try {
+        const roleCode = (req.user?.RoleCode || '').toUpperCase();
+        if (roleCode !== 'SUPER_ADMIN' && roleCode !== 'SUPERADMIN') {
+            return res.status(403).json({ success: false, message: 'Only Super Admin can delete camps.' });
+        }
+
         const camp = await Camp.findById(req.params.id);
         if (!camp) {
             return res.status(404).json({ success: false, message: 'Camp not found' });

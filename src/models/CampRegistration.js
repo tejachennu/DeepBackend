@@ -122,12 +122,7 @@ class CampRegistration {
 
     // Update registration
     static async update(registrationId, updateData, updatedBy) {
-        if (updateData.status) {
-            await db.execute(
-                `UPDATE camp_registrations SET Status = ?, UpdatedBy = ? WHERE RegistrationId = ?`,
-                [updateData.status, updatedBy, registrationId]
-            );
-        }
+        // Status removal applied
         if (updateData.responses) {
             for (const resp of updateData.responses) {
                 await db.execute(
@@ -148,7 +143,7 @@ class CampRegistration {
 
     // Export data for Excel
     static async getExportData(campId, { fromDate, toDate } = {}) {
-        let query = `SELECT r.RegistrationId, r.Status, r.CreatedDate
+        let query = `SELECT r.RegistrationId, r.CreatedDate
              FROM camp_registrations r
              WHERE r.CampId = ? AND r.IsDeleted = FALSE`;
         const params = [campId];

@@ -44,6 +44,7 @@ class Camp {
             `SELECT c.*,
                     p.ProjectName,
                     u.FullName as CreatedByName,
+                    (SELECT COUNT(*) FROM camp_registrations WHERE CampId = c.CampId AND IsDeleted = FALSE) as PeopleAttended,
                     (SELECT COUNT(*) FROM camp_media WHERE CampId = c.CampId AND IsDeleted = FALSE) as MediaCount
              FROM camps c
              LEFT JOIN projects p ON c.ProjectId = p.ProjectId
@@ -59,6 +60,7 @@ class Camp {
         let query = `
             SELECT c.*,
                    p.ProjectName,
+                   (SELECT COUNT(*) FROM camp_registrations WHERE CampId = c.CampId AND IsDeleted = FALSE) as PeopleAttended,
                    (SELECT COUNT(*) FROM camp_media WHERE CampId = c.CampId AND MediaType = 'IMAGE' AND IsDeleted = FALSE) as ImageCount,
                    (SELECT COUNT(*) FROM camp_media WHERE CampId = c.CampId AND MediaType = 'VIDEO' AND IsDeleted = FALSE) as VideoCount
             FROM camps c
@@ -281,10 +283,10 @@ class Camp {
                 SUM(CASE WHEN CampStatus = 'Ongoing' THEN 1 ELSE 0 END) as ongoingCamps,
                 SUM(CASE WHEN CampStatus = 'Planned' THEN 1 ELSE 0 END) as plannedCamps,
                 COALESCE(SUM(PeopleExpected), 0) as totalExpected,
-                COALESCE(SUM(PeopleAttended), 0) as totalAttended
+                (SELECT COUNT(*) FROM camp_registrations cr JOIN camps c2 ON cr.CampId = c2.CampId WHERE c2.ProjectId = ? AND c2.IsDeleted = FALSE AND cr.IsDeleted = FALSE) as totalAttended
              FROM camps
              WHERE ProjectId = ? AND IsDeleted = FALSE`,
-            [projectId]
+            [projectId, projectId]
         );
         return rows[0];
     }
